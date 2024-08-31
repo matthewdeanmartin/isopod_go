@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'      # Trigger the workflow when a tag with the format 'v*.*.*' is pushed
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        goos: [ linux, darwin, windows ]
+        goarch: [ amd64, arm64 ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.1.7
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.0.2
+        with:
+          go-version: '1.23'      # Set your desired Go version
+
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          if [ "${{ matrix.goos }}" == "windows" ]; then
+            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/isopod-${{ matrix.goos }}-${{ matrix.goarch }}.exe main.go
+            cp data.toml dist/data-${{ matrix.goos }}-${{ matrix.goarch }}.toml
+          else
+            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/isopod-${{ matrix.goos }}-${{ matrix.goarch }} main.go
+            cp data.toml dist/data-${{ matrix.goos }}-${{ matrix.goarch }}.toml
+          fi
+
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4.4.0
+        with:
+          name: isopod-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/isopod-${{ matrix.goos }}-${{ matrix.goarch }}
+            dist/data.toml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.1.7
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          path: dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2.0.8
+        with:
+          files: dist/*
+        env:
+
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+#    - name: Create Release
+#      id: create_release
+#      uses: actions/create-release@v1.1.4
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        tag_name: ${{ github.ref }}
+#        release_name: Release ${{ github.ref }}
+#        body: |
+#          Initial publication
+#        draft: false
+#        prerelease: false

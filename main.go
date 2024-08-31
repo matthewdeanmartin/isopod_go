@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const Version = "v1.0.0"
+
 func main() {
 	the_game := game.NewGame("data.toml")
 
