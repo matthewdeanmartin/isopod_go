@@ -29,10 +29,10 @@ jobs:
           mkdir -p dist
           if [ "${{ matrix.goos }}" == "windows" ]; then
             GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/isopod-${{ matrix.goos }}-${{ matrix.goarch }}.exe main.go
-            cp data.toml dist/data-${{ matrix.goos }}-${{ matrix.goarch }}.toml
+            cp data.toml dist/data.toml
           else
             GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/isopod-${{ matrix.goos }}-${{ matrix.goarch }} main.go
-            cp data.toml dist/data-${{ matrix.goos }}-${{ matrix.goarch }}.toml
+            cp data.toml dist/data.toml
           fi
 
 
@@ -41,6 +41,7 @@ jobs:
         with:
           name: isopod-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
+            dist/isopod-${{ matrix.goos }}-${{ matrix.goarch }}.exe
             dist/isopod-${{ matrix.goos }}-${{ matrix.goarch }}
             dist/data.toml
 
@@ -55,11 +56,13 @@ jobs:
         uses: actions/download-artifact@v4.1.8
         with:
           path: dist
+      - name: Display structure of downloaded files
+        run: ls -R
 
       - name: Create Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          files: dist/*
+          files: *
         env:
 
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
