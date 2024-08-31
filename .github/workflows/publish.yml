@@ -63,8 +63,7 @@ jobs:
         uses: softprops/action-gh-release@v2.0.8
         with:
           files: |
-            dist/*
-            *
+            ./dist
         env:
 
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
