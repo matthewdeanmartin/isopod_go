@@ -62,7 +62,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2.0.8
         with:
-          files: *
+          files: |
+            dist/*
+            *
         env:
 
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
