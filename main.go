@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	the_game := game.NewGame()
+	the_game := game.NewGame("data.toml")
 
 	fmt.Println("Welcome to the Isopod Adventure!")
 	fmt.Println("Your mission is to find a place to hide, a cookie crumb, and another isopod friend.")

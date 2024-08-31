@@ -40,4 +40,8 @@ install_dev_tools:
 	@go install honnef.co/go/tools/cmd/staticcheck@latest
 	@go install golang.org/x/tools/cmd/godoc@latest
 
+run: build
+	@go run main.go
+
 .PHONY: all format lint build test clean
+

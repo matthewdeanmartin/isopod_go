@@ -2,34 +2,81 @@ package game
 
 import (
 	"fmt"
+	"os"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
+
+// Structs for TOML data
+type Config struct {
+	Game      GameConfig          `toml:"game"`
+	Locations map[string]Location `toml:"locations"`
+	Items     map[string]string   `toml:"items"`
+}
+
+type GameConfig struct {
+	WelcomeText   string   `toml:"welcome_text"`
+	WinText       string   `toml:"win_text"`
+	StartLocation string   `toml:"start_location"` // New field for starting location
+	WinConditions []string `toml:"win_conditions"` // New field for win conditions
+}
+
+type Location struct {
+	Description string            `toml:"description"`
+	Directions  map[string]string `toml:"-"` // Dynamically filled in after parsing
+	// Adding fields to parse directions directly from TOML
+	North string `toml:"north,omitempty"`
+	South string `toml:"south,omitempty"`
+	East  string `toml:"east,omitempty"`
+	West  string `toml:"west,omitempty"`
+}
 
 // Game state
 type Game struct {
 	CurrentLocation string
 	Inventory       map[string]bool
-	Locations       map[string][]string
+	Locations       map[string]Location
 	Items           map[string]string
+	Config          GameConfig
 }
 
-// Initialize a new game
-func NewGame() *Game {
+// Initialize a new game from TOML configuration
+func NewGame(configFile string) *Game {
+	var config Config
+	if _, err := toml.DecodeFile(configFile, &config); err != nil {
+		fmt.Println("Error loading configuration:", err)
+		os.Exit(1)
+	}
+
+	// Set up directions for locations from the TOML data
+	for name, location := range config.Locations {
+		location.Directions = make(map[string]string)
+
+		// Populate the directions from TOML data
+		if location.North != "" {
+			location.Directions["north"] = location.North
+		}
+		if location.South != "" {
+			location.Directions["south"] = location.South
+		}
+		if location.East != "" {
+			location.Directions["east"] = location.East
+		}
+		if location.West != "" {
+			location.Directions["west"] = location.West
+		}
+
+		config.Locations[name] = location
+	}
+
+	// Initialize game with the start location from config
 	return &Game{
-		CurrentLocation: "Leaf Pile",
+		CurrentLocation: config.Game.StartLocation,
 		Inventory:       map[string]bool{},
-		Locations: map[string][]string{
-			"Leaf Pile":     {"Rock", "Log", "Pond"},
-			"Rock":          {"Leaf Pile", "Log"},
-			"Log":           {"Leaf Pile", "Rock"},
-			"Pond":          {"Leaf Pile"},
-			"Isopod's Home": {"Leaf Pile"},
-		},
-		Items: map[string]string{
-			"Rock":          "Place to Hide",
-			"Log":           "Cookie Crumb",
-			"Isopod's Home": "Another Isopod Friend",
-		},
+		Locations:       config.Locations,
+		Items:           config.Items,
+		Config:          config.Game,
 	}
 }
 
@@ -45,6 +92,9 @@ func (g *Game) HandleCommand(command string) bool {
 	case strings.HasPrefix(command, "go "):
 		direction := strings.TrimPrefix(command, "go ")
 		g.Move(direction)
+	case command == "quit":
+		fmt.Println("Thanks for playing!")
+		return false
 	default:
 		fmt.Println("Unknown command. Type 'help' for a list of commands.")
 	}
@@ -56,13 +106,14 @@ func (g *Game) PrintHelp() {
 	fmt.Println("Commands:")
 	fmt.Println("  look       - Look around the current location.")
 	fmt.Println("  Inventory  - Check your Inventory.")
-	fmt.Println("  go <place> - Move to a different location.")
+	fmt.Println("  go <direction> - Move to a different location.")
 	fmt.Println("  quit       - Quit the game.")
 }
 
-// Describe the current location
+// Describe the current location and list possible moves
 func (g *Game) Look() {
-	fmt.Printf("You are at the %s.\n", g.CurrentLocation)
+	loc := g.Locations[g.CurrentLocation]
+	fmt.Printf("%s\n", loc.Description)
 	if item, found := g.Items[g.CurrentLocation]; found {
 		fmt.Printf("You found a %s here!\n", item)
 		g.Inventory[item] = true
@@ -70,7 +121,16 @@ func (g *Game) Look() {
 	} else {
 		fmt.Println("There's nothing special here.")
 	}
-	fmt.Printf("You can go to: %v\n", g.Locations[g.CurrentLocation])
+
+	// List available directions and locations
+	if len(loc.Directions) > 0 {
+		fmt.Println("You can go to:")
+		for direction, destination := range loc.Directions {
+			fmt.Printf("  %s - %s\n", direction, destination)
+		}
+	} else {
+		fmt.Println("There are no available places to go from here.")
+	}
 }
 
 // Show the player's Inventory
@@ -86,21 +146,22 @@ func (g *Game) ShowInventory() {
 }
 
 // Move to a different location
-func (g *Game) Move(location string) {
-	if destinations, ok := g.Locations[g.CurrentLocation]; ok {
-		for _, dest := range destinations {
-			if strings.EqualFold(dest, location) {
-				g.CurrentLocation = dest
-				fmt.Printf("You moved to the %s.\n", dest)
-				g.Look()
-				return
-			}
-		}
+func (g *Game) Move(direction string) {
+	if location, ok := g.Locations[g.CurrentLocation].Directions[direction]; ok {
+		g.CurrentLocation = location
+		fmt.Printf("You moved to the %s.\n", location)
+		g.Look()
+	} else {
+		fmt.Println("You can't go there from here.")
 	}
-	fmt.Println("You can't go there from here.")
 }
 
 // Check if the player has won
 func (g *Game) CheckWinCondition() bool {
-	return g.Inventory["Place to Hide"] && g.Inventory["Cookie Crumb"] && g.Inventory["Another Isopod Friend"]
+	for _, item := range g.Config.WinConditions {
+		if !g.Inventory[item] {
+			return false
+		}
+	}
+	return true
 }
